@@ -211,7 +211,7 @@ def averaged_fft(t, x):
 
 
 if __name__=='__main__':
-    x = SignalReconstructor(n_samples=20e3)
+    x = SignalReconstructor(n_samples=150e3)
     x.plot_masked_signals(n_max=256)
     x.plot_reconstructions(n_max=256)
     plt.show()
