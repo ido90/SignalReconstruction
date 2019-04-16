@@ -45,3 +45,12 @@ The goal of this project is to compare - in both signal space and Fourier space 
 |![](https://github.com/ido90/SignalReconstruction/blob/master/Output/reconstruction_errors.png)|
 |:--:|
 | Summary of errors |
+
+_________________
+
+## References
+
+Most references recommend to deal with missing data points in spectral analysis by filling in the missing points using some [interpolation](http://mres.uni-potsdam.de/index.php/2017/08/22/data-voids-and-spectral-analysis-dont-be-afraid-of-gaps/) (linear or spline, typically for uniform sampling with missing points) or [Gaussian filter](https://scicomp.stackexchange.com/questions/593/how-do-i-take-the-fft-of-unevenly-spaced-data) (typically for non-uniform sampling).
+
+[Some references](https://dsp.stackexchange.com/questions/22930/spectral-analysis-of-a-time-series-with-missing-data-points) suggest applying FFT for each uniform interval separately, and averaging the results, which I was too lazy to try.
+[This one](https://electronics.stackexchange.com/questions/290994/fast-fourier-transformation-of-incomplete-signals) suggests weighted Fourier transform, for which I didn't easily find an available implementation; and non-equispaced-FFT (NFFT), for which I used this [implementation](https://github.com/jakevdp/nfft/) which I didn't find stable enough.
