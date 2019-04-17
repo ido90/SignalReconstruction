@@ -38,9 +38,9 @@ The goal of this project is to compare - in both signal space and Fourier space 
 |:--:|
 | Reconstructed signals (RMSE in paranthesis) |
 
-|![](https://github.com/ido90/SignalReconstruction/blob/master/Output/reconstructed_ffts.png)|
+|![](https://github.com/ido90/SignalReconstruction/blob/master/Output/reconstructed_ffts_focused.png)|
 |:--:|
-| Reconstructed FFTs (RMSE in paranthesis) |
+| A sample of the reconstructed FFTs (RMSE in paranthesis) |
 
 |![](https://github.com/ido90/SignalReconstruction/blob/master/Output/reconstruction_errors.png)|
 |:--:|
