@@ -116,6 +116,7 @@ class SignalReconstructor:
         fig2, axs2 = plt.subplots(len(self.masks), len(self.signals))
         rmse = {m: {} for m in self.methods}
         frmse = {m: {} for m in self.methods}
+        frmse_short = {m: {} for m in self.methods}
         f_max_err = {m: {} for m in self.methods}
         for i, mask in enumerate(self.masks):
             for j, sig in enumerate(self.signals):
@@ -155,6 +156,9 @@ class SignalReconstructor:
                     if plot_missing or len(f) == len(good_fft):
                         plt.figure(fig2.number)
                         ax2.plot(tp2[1:-1], xp[1:-1], color=COLORS[k], linewidth=0.8, label=m + f' ({err:.1f})')
+                    # fourier mse: high (short) frequencies
+                    err = np.sqrt(np.mean((np.abs(f_long[:4096])-np.abs(good_fft[:4096]))**2))
+                    frmse_short[m][mask + ' :\n' + sig] = err
                 for fig,ax in zip((fig1,fig2),(ax1,ax2)):
                     plt.figure(fig.number)
                     ax.grid()
@@ -166,10 +170,11 @@ class SignalReconstructor:
             plt.figure(fig2.number)
             utils.draw()
         # plot all RMSEs
-        fig, axs = plt.subplots(3, 1)
-        self.plot_rmse(rmse,  axs[0], title='Signal (RMSE)', logy=True)
-        self.plot_rmse(frmse, axs[1], title='Fourier (RMSE of normalized signal)', logy=True)
-        self.plot_rmse(f_max_err, axs[2], title='Fourier (Max Error of normalized signal)', logy=True)
+        fig, axs = plt.subplots(2, 2)
+        self.plot_rmse(rmse,  axs[0,0], title='Signal (RMSE)', logy=True)
+        self.plot_rmse(frmse, axs[0,1], title='Fourier (RMSE of normalized absolute signal)', logy=True)
+        self.plot_rmse(f_max_err, axs[1,0], title='Fourier (Max Error of normalized absolute signal)', logy=True)
+        self.plot_rmse(frmse_short, axs[1,1], title='Fourier (RMSE of first 4K frequencies)', logy=True)
 
     def plot_rmse(self, rmse, ax, title='', logy=False):
         M = np.max([v for r in rmse.values() for v in r.values()])
