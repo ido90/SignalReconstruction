@@ -16,7 +16,8 @@ COLORS = ('blue','red','green','purple','orange','grey','pink','lime')
 
 class SignalReconstructor:
 
-    def __init__(self, n_samples=150e3, signals=None, masks=None, methods=None):
+    def __init__(self, n_samples=150e3, signals=None, masks=None, methods=None,
+                 detailed=0):
         self.n_samples = int(n_samples)
         self.t = np.arange(self.n_samples)
         self.signals = {}
@@ -24,38 +25,42 @@ class SignalReconstructor:
         self.methods = {}
 
         if signals is None:
-            self.add_default_signals()
+            self.add_default_signals(detailed=detailed)
         else:
             self.signals = signals
         if masks is None:
-            self.add_default_masks()
+            self.add_default_masks(detailed=detailed)
         else:
             self.masks = masks
         if methods is None:
-            self.add_default_methods()
+            self.add_default_methods(detailed=detailed)
         else:
             self.methods = methods
 
-    def add_default_signals(self):
+    def add_default_signals(self, detailed=0):
         n = self.n_samples
         T = np.random.exponential(20, 10)
         self.signals['single_freq'] = np.sin(1/T[0]*np.arange(n))
-        self.signals['ten_freqs'] = np.zeros(n)
-        for t in T:
-            self.signals['ten_freqs'] += np.sin(1/t*np.arange(n))
-        #self.signals['white'] = np.fft.ifft(np.ones(n))
-        #self.signals['rand_unif'] = np.random.uniform(0,1,n)
-        self.signals['rand_gauss'] = np.random.normal(0,1,n)
+        if detailed >= 1:
+            self.signals['ten_freqs'] = np.zeros(n)
+            for t in T:
+                self.signals['ten_freqs'] += np.sin(1/t*np.arange(n))
+        if detailed >= 2:
+            self.signals['white'] = np.fft.ifft(np.ones(n))
+            self.signals['rand_unif'] = np.random.uniform(0,1,n)
+        if detailed >= 1:
+            self.signals['rand_gauss'] = np.random.normal(0,1,n)
         if os.path.isfile('Data/signal.csv'):
             self.signals['earthquake'] = \
                 pd.read_csv('Data/signal.csv', nrows=n).iloc[:,1]
 
-    def add_default_masks(self):
+    def add_default_masks(self, detailed=0):
         n = self.n_samples
         self.masks['structured'] = np.zeros(n, dtype=bool)
         for i in range(int(n/4096)):
             self.masks['structured'][((i+1)*4096-48+1):((i+1)*4096+1)] = True
-        self.masks['random'] = np.random.choice((True,False), n, p=(0.03,0.97))
+        if detailed >= 1:
+            self.masks['random'] = np.random.choice((True,False), n, p=(0.03,0.97))
         self.masks['rand_seqs'] = np.zeros(n, dtype=bool)
         i = 0
         val = False
@@ -69,15 +74,19 @@ class SignalReconstructor:
             self.masks[mask][ 0] = False
             self.masks[mask][-1] = False
 
-    def add_default_methods(self):
+    def add_default_methods(self, detailed=0):
         self.methods['ignore'] = lambda t,x: rem_nans(t,x)
-        self.methods['zeros'] = lambda t,x: fill_zeros(t,x)
+        if detailed >= 1:
+            self.methods['zeros'] = lambda t,x: fill_zeros(t,x)
         self.methods['linear'] = lambda t,x: interpolation(t, x, 'linear')
-        self.methods['sp_0'] = lambda t,x: interpolation(t, x, 'zero')
-        self.methods['sp_1'] = lambda t,x: interpolation(t, x, 'slinear')
+        if detailed >= 2:
+            self.methods['sp_0'] = lambda t,x: interpolation(t, x, 'zero')
+            self.methods['sp_1'] = lambda t,x: interpolation(t, x, 'slinear')
         self.methods['sp_2'] = lambda t,x: interpolation(t, x, 'quadratic')
         self.methods['sp_3'] = lambda t,x: interpolation(t, x, 'cubic')
-        #self.methods['nfft'] = lambda t,x: apply_nfft(t,x)
+        self.methods['averaged'] = lambda t,x: averaged_fft(t, x)
+        if detailed >= 3:
+            self.methods['nfft'] = lambda t,x: apply_nfft(t,x)
 
     def plot_masked_signals(self, n_max=None):
         n = len(self.t[:n_max])
@@ -114,17 +123,21 @@ class SignalReconstructor:
                 #ax1 = InteractiveFigure()
                 ax2 = axs2[i,j]
                 good_sig = self.signals[sig]
-                good_fft = np.fft.fft(good_sig)
+                good_fft = np.fft.fft(good_sig, norm='ortho')
+                good_fft /= np.mean(np.abs(good_fft))
                 bad_sig = self.ruined_signal(sig, mask)
                 xp = good_sig[4000:4000 + n_max] if n_max else good_sig
                 ax1.plot(tp1, xp, color='black', linewidth=0.8, label='original')
-                xp = good_fft[:n_max] if n_max else good_sig
-                ax2.plot(tp2, xp, color='black', linewidth=0.8, label='original')
+                xp = [np.mean(np.abs(good_fft)[int(i*len(good_fft)/n_max):int((i+1)*len(good_fft)/n_max)])
+                      for i in range(n_max)] \
+                    if n_max else np.abs(good_fft)
+                ax2.plot(tp2[1:-1], xp[1:-1], color='black', linewidth=0.8, label='original')
                 for k,m in enumerate(self.methods):
                     # reconstruct
                     t, x, f = self.methods[m](self.t, self.ruined_signal(sig, mask))
                     x_long = np.concatenate((x, np.zeros(len(good_sig)-len(x))))
                     f_long = np.concatenate((f, np.zeros(len(good_fft)-len(f))))
+                    f_long /= np.mean(np.abs(f_long))
                     # mse
                     err = np.sqrt(np.mean((x_long-good_sig)**2))
                     rmse[m][mask+' :\n'+sig] = err
@@ -133,13 +146,15 @@ class SignalReconstructor:
                         plt.figure(fig1.number)
                         ax1.plot(tp1, xp, color=COLORS[k], linewidth=0.8, label=m+f' ({err:.1f})')
                     # fourier mse
-                    err = np.sqrt(np.mean((f_long-good_fft)**2))
+                    err = np.sqrt(np.mean((np.abs(f_long)-np.abs(good_fft))**2))
                     frmse[m][mask+' :\n'+sig] = err
-                    f_max_err[m][mask+' :\n'+sig] = np.sqrt(np.max((f_long-good_fft)**2))
-                    xp = f_long[:n_max] if n_max else x_long
+                    f_max_err[m][mask+' :\n'+sig] = np.sqrt(np.max((np.abs(f_long)-np.abs(good_fft))**2))
+                    xp = [np.mean(np.abs(f_long)[int(i*len(f_long)/n_max):int((i+1)*len(f_long)/n_max)])
+                      for i in range(n_max)] \
+                        if n_max else np.abs(f_long)
                     if plot_missing or len(f) == len(good_fft):
                         plt.figure(fig2.number)
-                        ax2.plot(tp2, xp, color=COLORS[k], linewidth=0.8, label=m + f' ({err:.1f})')
+                        ax2.plot(tp2[1:-1], xp[1:-1], color=COLORS[k], linewidth=0.8, label=m + f' ({err:.1f})')
                 for fig,ax in zip((fig1,fig2),(ax1,ax2)):
                     plt.figure(fig.number)
                     ax.grid()
@@ -153,10 +168,11 @@ class SignalReconstructor:
         # plot all RMSEs
         fig, axs = plt.subplots(3, 1)
         self.plot_rmse(rmse,  axs[0], title='Signal (RMSE)', logy=True)
-        self.plot_rmse(frmse, axs[1], title='Fourier (RMSE)', logy=True)
-        self.plot_rmse(f_max_err, axs[2], title='Fourier (Max Error)', logy=True)
+        self.plot_rmse(frmse, axs[1], title='Fourier (RMSE of normalized signal)', logy=True)
+        self.plot_rmse(f_max_err, axs[2], title='Fourier (Max Error of normalized signal)', logy=True)
 
     def plot_rmse(self, rmse, ax, title='', logy=False):
+        M = np.max([v for r in rmse.values() for v in r.values()])
         keys = list(rmse[list(self.methods.keys())[0]].keys())
         methods = list(self.methods.keys())
         width = 1 / (len(methods) + 1)
@@ -168,7 +184,7 @@ class SignalReconstructor:
             )
             for rect, k in zip(rects, keys):
                 height = rect.get_height()
-                ax.text(rect.get_x() + rect.get_width() / 2., height + 0.2,
+                ax.text(rect.get_x() + rect.get_width() / 2., height + 0.1*M,
                         f'{m:s}',
                         ha='center', va='bottom', rotation=90)
         ax.grid(axis='y')
@@ -185,15 +201,15 @@ def interpolation(t, x, kind):
     ids = np.logical_not(np.isnan(x))
     p = interpolate.interp1d(t[ids], x[ids], kind=kind)
     x = p(t)
-    return (t, x, np.fft.fft(x))
+    return (t, x, np.fft.fft(x, norm='ortho'))
 
 def rem_nans(t, x):
     ids = np.logical_not(np.isnan(x))
-    return (t[ids], x[ids], np.fft.fft(x[ids]))
+    return (t[ids], x[ids], np.fft.fft(x[ids], norm='ortho'))
 
 def fill_zeros(t, x):
     x[np.isnan(x)] = 0
-    return (t, x, np.fft.fft(x))
+    return (t, x, np.fft.fft(x, norm='ortho'))
 
 def apply_nfft(t, x):
     ids = np.logical_not(np.isnan(x))
@@ -202,12 +218,36 @@ def apply_nfft(t, x):
     try:
         f = nfft(t[ids], x[ids])
     except:
-        f = np.fft.fft(x[ids])
+        f = np.fft.fft(x[ids], norm='ortho')
     return(t[ids], x[ids], f)
 
-def averaged_fft(t, x):
-    # TODO find all sequences, calculate ffts, average ffts (only shared freqs)
-    pass
+def averaged_fft(t, x, min_len=100):
+    # find sequences
+    interval_starts = np.where(np.logical_and(np.isnan(x[:-1]),np.logical_not(np.isnan(x[1:]))))[0] + 1
+    interval_ends = np.where(np.logical_and(np.logical_not(np.isnan(x[:-1])),np.isnan(x[1:])))[0] + 1
+    if not np.isnan(x[0]):
+        interval_starts = np.concatenate(([0], interval_starts))
+    if not np.isnan(np.array(x)[-1]):
+        interval_ends = np.concatenate((interval_ends, [len(x)]))
+
+    # compute ffts
+    # n = np.min([tf-ti for ti, tf in zip(interval_starts, interval_ends)
+    #             if tf-ti>=min_len])
+    n = len(x)
+    ffts = []
+    for ti, tf in zip(interval_starts, interval_ends):
+        if tf-ti<min_len:
+            continue
+        f = np.fft.fft(x[ti:tf], norm='ortho')
+        p = interpolate.interp1d(np.arange(len(f))/(1*(len(f)-1)), f, kind='linear')
+        f = p(np.arange(n)/(1*n))
+        ffts.append(np.abs(f))
+
+    # average ffts
+    avg_fft = np.mean(ffts, axis=0)
+
+    ids = np.logical_not(np.isnan(x))
+    return (t[ids], x[ids], avg_fft)
 
 
 if __name__=='__main__':
