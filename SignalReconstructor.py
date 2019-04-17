@@ -148,7 +148,7 @@ class SignalReconstructor:
                     # fourier mse
                     err = np.sqrt(np.mean((np.abs(f_long)-np.abs(good_fft))**2))
                     frmse[m][mask+' :\n'+sig] = err
-                    f_max_err[m][mask+' :\n'+sig] = np.sqrt(np.max((np.abs(f_long)-np.abs(good_fft))**2))
+                    f_max_err[m][mask+' :\n'+sig] = np.sqrt(np.max((np.abs(f_long[1:-1])-np.abs(good_fft[1:-1]))**2))
                     xp = [np.mean(np.abs(f_long)[int(i*len(f_long)/n_max):int((i+1)*len(f_long)/n_max)])
                       for i in range(n_max)] \
                         if n_max else np.abs(f_long)
