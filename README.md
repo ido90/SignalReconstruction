@@ -1,9 +1,9 @@
-# Reconstruction of signals with dropped samples: methods comparison
+# Spectrum reconstruction for signals with dropped samples: methods comparison
 
 ## Introduction
-A signal is available in discrete times with uniform gaps, up to certain missing points (*dropped samples*).
+This work assumes an observed signal which is sampled in discrete times, uniformly up to certain missing points (*dropped samples*).
 Fourier transform assumes uniform grid of points, and tends to be sensitive to such dropped samples.
-The goal of this project is to compare - in both signal space and Fourier space - the errors of the reconstructed signal using various reconstruction methods.
+The goal of this work is to compare - in both signal space and Fourier space - the errors of the reconstructed signal using various reconstruction methods.
 
 ## Data
 ### Signals
