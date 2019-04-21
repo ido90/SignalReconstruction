@@ -124,7 +124,7 @@ class SignalReconstructor:
                 #ax1 = InteractiveFigure()
                 ax2 = axs2[i,j]
                 good_sig = self.signals[sig]
-                good_fft = np.fft.fft(good_sig, norm='ortho')
+                good_fft = np.fft.rfft(good_sig, norm='ortho')
                 good_fft /= np.mean(np.abs(good_fft))
                 bad_sig = self.ruined_signal(sig, mask)
                 xp = good_sig[4000:4000 + n_max] if n_max else good_sig
@@ -206,15 +206,15 @@ def interpolation(t, x, kind):
     ids = np.logical_not(np.isnan(x))
     p = interpolate.interp1d(t[ids], x[ids], kind=kind)
     x = p(t)
-    return (t, x, np.fft.fft(x, norm='ortho'))
+    return (t, x, np.fft.rfft(x, norm='ortho'))
 
 def rem_nans(t, x):
     ids = np.logical_not(np.isnan(x))
-    return (t[ids], x[ids], np.fft.fft(x[ids], norm='ortho'))
+    return (t[ids], x[ids], np.fft.rfft(x[ids], norm='ortho'))
 
 def fill_zeros(t, x):
     x[np.isnan(x)] = 0
-    return (t, x, np.fft.fft(x, norm='ortho'))
+    return (t, x, np.fft.rfft(x, norm='ortho'))
 
 def apply_nfft(t, x):
     ids = np.logical_not(np.isnan(x))
@@ -223,7 +223,7 @@ def apply_nfft(t, x):
     try:
         f = nfft(t[ids], x[ids])
     except:
-        f = np.fft.fft(x[ids], norm='ortho')
+        f = np.fft.rfft(x[ids], norm='ortho')
     return(t[ids], x[ids], f)
 
 def averaged_fft(t, x, min_len=100):
@@ -243,9 +243,9 @@ def averaged_fft(t, x, min_len=100):
     for ti, tf in zip(interval_starts, interval_ends):
         if tf-ti<min_len:
             continue
-        f = np.fft.fft(x[ti:tf], norm='ortho')
+        f = np.fft.rfft(x[ti:tf], norm='ortho')
         p = interpolate.interp1d(np.arange(len(f))/(1*(len(f)-1)), f, kind='linear')
-        f = p(np.arange(n)/(1*n))
+        f = p(np.arange(np.ceil(n/2))/(1*n))
         ffts.append(np.abs(f))
 
     # average ffts
@@ -256,7 +256,7 @@ def averaged_fft(t, x, min_len=100):
 
 
 if __name__=='__main__':
-    x = SignalReconstructor(n_samples=150e3)
+    x = SignalReconstructor(n_samples=150e3, detailed=0)
     x.plot_masked_signals(n_max=256)
     x.plot_reconstructions(n_max=256)
     plt.show()
